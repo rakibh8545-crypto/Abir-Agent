@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Code Agent - Pro Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #7c3aed;
+    --accent-glow: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --user-bubble: #1e1b4b;
+    --ai-bubble: #0f172a;
+    --code-bg: #020207;
+    --input-bg: #0d0d14;
+    --success: #10b981;
+    --error: #ef4444;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    gap: 12px;
+    padding: 12px;
+    z-index: 1;
+  }
+
+  .chat-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(17,17,24,0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .editor-section {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(17,17,24,0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    gap: 8px;
+  }
+
+  header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px rgba(124,58,237,0.4);
+    flex-shrink: 0;
+  }
+
+  .title { font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
+  .status { font-size: 11px; color: var(--accent-glow); letter-spacing: 0.08em; }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    font-family: inherit;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn.run { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.run:hover { background: #9333ea; }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg-row {
+    display: flex;
+    animation: fadeIn 0.3s ease;
+  }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.assistant { justify-content: flex-start; }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .bubble {
+    max-width: 85%;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    word-wrap: break-word;
+  }
+  .bubble.user {
+    background: var(--user-bubble);
+    border: 1px solid rgba(124,58,237,0.4);
+    border-radius: 18px 18px 4px 18px;
+    box-shadow: 0 2px 16px rgba(124,58,237,0.15);
+  }
+  .bubble.assistant {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 18px 18px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .bubble strong { color: var(--accent-glow); }
+  .bubble code { 
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: #0a0a12;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    color: var(--accent-glow);
+    font-size: 11px;
+    font-family: 'Fira Code', monospace;
+    letter-spacing: 0.05em;
+  }
+  .code-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+  .insert-btn { background: var(--accent); border-color: var(--accent); color: white; }
+  .insert-btn:hover { background: #9333ea; }
+
+  .code-block pre {
+    margin: 0;
+    padding: 14px;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #c4b5fd;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* Editor Styles */
+  .editor-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .editor-tabs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tab {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .tab:hover { border-color: var(--accent); }
+
+  .editor-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #code-editor {
+    flex: 1;
+    padding: 16px;
+    background: var(--code-bg);
+    border: none;
+    outline: none;
+    color: #c4b5fd;
+    font-family: 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    overflow: auto;
+    border-radius: 8px 0 0 0;
+  }
+
+  #code-editor::selection { background: rgba(124,58,237,0.4); }
+
+  .output-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .output-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  #output {
+    flex: 1;
+    padding: 14px 16px;
+    overflow-y: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #c4b5fd;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .output-success { color: var(--success); }
+  .output-error { color: var(--error); }
+  .output-info { color: var(--accent-glow); }
+
+  /* Typing indicator */
+  .typing-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.3s ease;
+  }
+  .typing-bubble {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 18px 18px 18px;
+    padding: 12px 18px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+  }
+  .dot:nth-child(1) { animation: pulse 1.2s ease-in-out 0s infinite; }
+  .dot:nth-child(2) { animation: pulse 1.2s ease-in-out 0.2s infinite; }
+  .dot:nth-child(3) { animation: pulse 1.2s ease-in-out 0.4s infinite; }
+
+  /* Input area */
+  #input-area {
+    padding: 16px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .input-wrap {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .textarea-box {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    transition: border-color 0.2s;
+  }
+  .textarea-box:focus-within { border-color: var(--accent); }
+
+  #user-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+    resize: none;
+    font-family: inherit;
+    max-height: 120px;
+    overflow-y: auto;
+    display: block;
+  }
+  #user-input::placeholder { color: #475569; }
+
+  #send-btn {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(124,58,237,0.4);
+    transition: all 0.2s;
+  }
+  #send-btn:disabled {
+    background: var(--border);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .hint {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* Scrollbar */
+  #messages::-webkit-scrollbar,
+  #code-editor::-webkit-scrollbar,
+  #output::-webkit-scrollbar { width: 4px; }
+  
+  #messages::-webkit-scrollbar-track,
+  #code-editor::-webkit-scrollbar-track,
+  #output::-webkit-scrollbar-track { background: transparent; }
+  
+  #messages::-webkit-scrollbar-thumb,
+  #code-editor::-webkit-scrollbar-thumb,
+  #output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pulse {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  @media (max-width: 1200px) {
+    .container {
+      flex-direction: column;
+    }
+    .editor-section {
+      width: 100%;
+      height: 40vh;
+    }
+    .chat-section {
+      flex: 1;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Chat Section -->
+  <div class="chat-section">
+    <header>
+      <div class="header-left">
+        <div class="logo">👾</div>
+        <div>
+          <div class="title">AI Code Agent Pro</div>
+          <div class="status">● ONLINE — EXECUTE & DEBUG</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" onclick="clearChat()">CLEAR CHAT</button>
+      </div>
+    </header>
+
+    <div id="messages"></div>
+
+    <div id="input-area">
+      <div class="input-wrap">
+        <div class="textarea-box">
+          <textarea id="user-input" rows="1" placeholder="Code likho, edit koro, debug koro, execute koro..."></textarea>
+        </div>
+        <button id="send-btn" onclick="sendMessage()">⚡</button>
+      </div>
+      <div class="hint">Enter ↵ to send • Shift+Enter for new line</div>
+    </div>
+  </div>
+
+  <!-- Editor Section -->
+  <div class="editor-section">
+    <header style="flex-direction: column; align-items: flex-start; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+        <div class="header-left" style="gap: 8px;">
+          <div class="logo" style="font-size: 16px;">⚙️</div>
+          <div>
+            <div class="title">Live Code Editor</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn" onclick="clearEditor()">CLEAR</button>
+          <button class="btn run" onclick="runCode()">▶ RUN</button>
+        </div>
+      </div>
+      <div class="editor-tabs">
+        <button class="tab active" onclick="switchTab('code')">📝 CODE</button>
+        <button class="tab" onclick="switchTab('output')">📤 OUTPUT</button>
+      </div>
+    </header>
+
+    <div class="editor-wrapper" id="code-tab">
+      <textarea id="code-editor" placeholder="// Write your code here...&#10;console.log('Hello World');"></textarea>
+    </div>
+
+    <div class="output-container" id="output-tab" style="display: none;">
+      <div class="output-header">📤 EXECUTION OUTPUT</div>
+      <div id="output">Ready to execute...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `You are an elite AI coding agent. You can:
+- Write, edit, fix, refactor, and explain any code
+- Add features and improvements
+- Debug and find errors
+- Help with any programming language
+- Suggest optimizations for performance and security
+- Explain code concepts clearly
+
+Always respond with well-structured, production-ready code.
+When providing code, wrap it in triple backticks with the language name.
+Be concise but thorough.
+
+User can insert code directly to the editor using the INSERT button.`;
+
+let conversationHistory = [];
+let isLoading = false;
+let currentLanguage = 'javascript';
+
+const messagesEl = document.getElementById('messages');
+const inputEl = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+const codeEditor = document.getElementById('code-editor');
+const outputEl = document.getElementById('output');
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatContent(content) {
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  return parts.map(part => {
+    if (part.startsWith('```')) {
+      const lines = part.slice(3).split('\n');
+      const lang = lines[0].trim() || 'code';
+      const code = lines.slice(1).join('\n').replace(/```$/, '').trim();
+      const id = 'cb_' + Math.random().toString(36).slice(2);
+      currentLanguage = lang.toLowerCase();
+      return `<div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">${escapeHtml(lang.toUpperCase())}</span>
+          <div class="code-buttons">
+            <button class="copy-btn" onclick="copyCode('${id}')">COPY</button>
+            <button class="copy-btn insert-btn" onclick="insertCode('${id}')">INSERT</button>
+          </div>
+        </div>
+        <pre id="${id}">${escapeHtml(code)}</pre>
+      </div>`;
+    }
+    return part
+      .split('\n')
+      .map(line => line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'))
+      .join('<br>');
+  }).join('');
+}
+
+function copyCode(id) {
+  const text = document.getElementById(id)?.innerText || '';
+  navigator.clipboard.writeText(text);
+  alert('✅ Code copied!');
+}
+
+function insertCode(id) {
+  const text = document.getElementById(id)?.innerText || '';
+  codeEditor.value = text;
+  switchTab('code');
+  codeEditor.focus();
+}
+
+function appendMessage(role, content) {
+  const row = document.createElement('div');
+  row.className = `msg-row ${role}`;
+
+  if (role === 'assistant') {
+    row.innerHTML = `
+      <div class="avatar">👾</div>
+      <div class="bubble assistant">${formatContent(content)}</div>`;
+  } else {
+    row.innerHTML = `<div class="bubble user">${escapeHtml(content).replace(/\n/g,'<br>')}</div>`;
+  }
+
+  messagesEl.appendChild(row);
+  scrollToBottom();
+}
+
+function showTyping() {
+  const row = document.createElement('div');
+  row.className = 'typing-row';
+  row.id = 'typing';
+  row.innerHTML = `
+    <div class="avatar">👾</div>
+    <div class="typing-bubble">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>`;
+  messagesEl.appendChild(row);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  document.getElementById('typing')?.remove();
+}
+
+function scrollToBottom() {
+  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+}
+
+function setLoading(val) {
+  isLoading = val;
+  sendBtn.disabled = val;
+  sendBtn.textContent = val ? '⏳' : '⚡';
+}
+
+function switchTab(tab) {
+  const codeTab = document.getElementById('code-tab');
+  const outputTab = document.getElementById('output-tab');
+  const tabs = document.querySelectorAll('.tab');
+  
+  tabs.forEach(t => t.classList.remove('active'));
+  
+  if (tab === 'code') {
+    codeTab.style.display = 'flex';
+    outputTab.style.display = 'none';
+    tabs[0].classList.add('active');
+  } else {
+    codeTab.style.display = 'none';
+    outputTab.style.display = 'flex';
+    tabs[1].classList.add('active');
+  }
+}
+
+function clearEditor() {
+  codeEditor.value = '';
+  outputEl.innerHTML = 'Ready to execute...';
+}
+
+function runCode() {
+  const code = codeEditor.value;
+  if (!code.trim()) {
+    outputEl.innerHTML = '<span class="output-error">❌ Code editor is empty!</span>';
+    switchTab('output');
+    return;
+  }
+
+  switchTab('output');
+  outputEl.innerHTML = '<span class="output-info">⏳ Executing code...</span>';
+
+  // Execute JavaScript code
+  try {
+    let output = '';
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    console.log = function(...args) {
+      output += args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ') + '\n';
+    };
+    console.error = function(...args) {
+      output += '❌ ERROR: ' + args.join(' ') + '\n';
+    };
+    console.warn = function(...args) {
+      output += '⚠️ WARNING: ' + args.join(' ') + '\n';
+    };
+
+    eval(code);
+
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
+
+    outputEl.innerHTML = output ? 
+      `<span class="output-success">✅ Execution successful!</span>\n\n${escapeHtml(output)}` : 
+      '<span class="output-info">✅ Code executed (no output)</span>';
+  } catch (error) {
+    outputEl.innerHTML = `<span class="output-error">❌ Error: ${escapeHtml(error.message)}</span>\n\n<span class="output-info">${escapeHtml(error.stack)}</span>`;
+  }
+}
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text || isLoading) return;
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  appendMessage('user', text);
+
+  conversationHistory.push({ role: 'user', content: text });
+  setLoading(true);
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-api-key': localStorage.getItem('anthropic-key') || ''
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: SYSTEM_PROMPT,
+        messages: conversationHistory
+      })
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        const key = prompt('Enter your Anthropic API key:');
+        if (key) {
+          localStorage.setItem('anthropic-key', key);
+          sendMessage();
+          return;
+        }
+      }
+      throw new Error(`API Error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const reply = (data.content || []).map(c => c.text || '').join('') || 'Error: No response.';
+    conversationHistory.push({ role: 'assistant', content: reply });
+    hideTyping();
+    appendMessage('assistant', reply);
+  } catch (e) {
+    hideTyping();
+    appendMessage('assistant', '❌ Connection error: ' + e.message);
+  }
+
+  setLoading(false);
+}
+
+function clearChat() {
+  conversationHistory = [];
+  messagesEl.innerHTML = '';
+  appendMessage('assistant', '👾 **AI Code Agent Pro** reset.\n\nAmi code likhu, edit kori, debug kori, execute kori ba explain kori sakbo. Apnar code diyun!')
+}
+
+// Auto-resize textarea
+inputEl.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// Enter to send
+inputEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+codeEditor.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = this.scrollHeight + 'px';
+});
+
+// Initial message
+appendMessage('assistant', '👾 **AI Code Agent Pro** online!\n\n✨ Features:\n• **Chat:** Code likhun, edit korun, debug korun\n• **Editor:** Live code execution with OUTPUT\n• **INSERT:** AI code directly editor e insert korun\n• **RUN:** JavaScript code execute korun immediately\n\nShuru korun code diye!');
+</script>
+</body>
+</html>
