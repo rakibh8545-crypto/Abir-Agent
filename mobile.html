@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>AI Code Agent Mobile</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Code Agent">
+<meta name="description" content="AI-powered code editor for mobile">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%237c3aed' width='180' height='180'/><text x='90' y='90' font-size='100' fill='white' text-anchor='middle' dominant-baseline='central'>👾</text></svg>">
+<style>
+  *, *::before, *::after { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #7c3aed;
+    --accent-glow: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --user-bubble: #1e1b4b;
+    --ai-bubble: #0f172a;
+    --code-bg: #020207;
+    --input-bg: #0d0d14;
+    --success: #10b981;
+    --error: #ef4444;
+    --safe-area-top: max(12px, env(safe-area-inset-top));
+    --safe-area-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  html, body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: fixed;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+    font-size: 16px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -50px; right: -50px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    z-index: 1;
+    position: relative;
+  }
+
+  /* Status bar safe area */
+  .status-bar {
+    height: var(--safe-area-top);
+    background: var(--bg);
+  }
+
+  /* Header */
+  header {
+    padding: 12px 14px;
+    background: rgba(10,10,15,0.98);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    box-shadow: 0 0 15px rgba(124,58,237,0.3);
+  }
+
+  .header-title {
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: -0.5px;
+  }
+
+  .header-subtitle {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .header-right {
+    display: flex;
+    gap: 8px;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+
+  .icon-btn:active {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(0.95);
+  }
+
+  /* Tab Navigation */
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: rgba(17,17,24,0.95);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    flex: 1;
+    min-width: 70px;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+    letter-spacing: 0.3px;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-icon {
+    font-size: 18px;
+  }
+
+  /* Content Container */
+  .content {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .content.active {
+    display: flex;
+  }
+
+  /* Messages */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #messages::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  #messages::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+  }
+
+  .msg-row {
+    display: flex;
+    animation: slideIn 0.3s ease;
+  }
+
+  .msg-row.user {
+    justify-content: flex-end;
+  }
+
+  .msg-row.assistant {
+    justify-content: flex-start;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-right: 8px;
+    margin-top: 4px;
+  }
+
+  .bubble {
+    max-width: 88%;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    border-radius: 14px;
+    -webkit-user-select: text;
+  }
+
+  .bubble.user {
+    background: var(--user-bubble);
+    border: 1px solid rgba(124,58,237,0.4);
+    border-radius: 16px 16px 4px 16px;
+  }
+
+  .bubble.assistant {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+  }
+
+  .bubble strong {
+    color: var(--accent-glow);
+  }
+
+  .bubble code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: #0a0a12;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    color: var(--accent-glow);
+    font-size: 10px;
+    font-family: 'Fira Code', monospace;
+    font-weight: 600;
+  }
+
+  .code-buttons {
+    display: flex;
+    gap: 4px;
+  }
+
+  .code-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .code-btn:active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    transform: scale(0.95);
+  }
+
+  .code-block pre {
+    margin: 0;
+    padding: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #c4b5fd;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Typing */
+  .typing-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .typing-bubble {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  /* Input Area */
+  #input-area {
+    padding: 10px 12px var(--safe-area-bottom);
+    background: rgba(10,10,15,0.98);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .input-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .textarea-box {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+  }
+
+  .textarea-box:focus-within {
+    border-color: var(--accent);
+  }
+
+  #user-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.4;
+    resize: none;
+    font-family: 'DM Sans', sans-serif;
+    max-height: 80px;
+    overflow-y: auto;
+    -webkit-user-select: text;
+  }
+
+  #user-input::placeholder {
+    color: #475569;
+  }
+
+  #send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(124,58,237,0.3);
+    transition: all 0.2s;
+  }
+
+  #send-btn:active {
+    transform: scale(0.92);
+    box-shadow: 0 0 8px rgba(124,58,237,0.2);
+  }
+
+  /* Editor */
+  .editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .editor-controls {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(17,17,24,0.6);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .control-btn {
+    flex: 1;
+    padding: 8px;
+    background: var(--accent);
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .control-btn:active {
+    background: #9333ea;
+    transform: scale(0.95);
+  }
+
+  .control-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .control-btn.secondary:active {
+    background: var(--border);
+  }
+
+  #code-editor {
+    flex: 1;
+    padding: 12px;
+    background: var(--code-bg);
+    border: none;
+    outline: none;
+    color: #c4b5fd;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    resize: none;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    -webkit-user-select: text;
+  }
+
+  .output-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 12px;
+    overflow: hidden;
+  }
+
+  .output-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  #output {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #c4b5fd;
+    white-space: pre-wrap;
+    word-break: break-word;
+    -webkit-user-select: text;
+  }
+
+  .output-success {
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  .output-error {
+    color: var(--error);
+    font-weight: 600;
+  }
+
+  .output-info {
+    color: var(--accent-glow);
+  }
+
+  /* About */
+  .about-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 14px var(--safe-area-bottom);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .about-section {
+    margin-bottom: 20px;
+  }
+
+  .about-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-glow);
+    margin-bottom: 8px;
+  }
+
+  .about-text {
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .about-list {
+    margin-left: 16px;
+    color: var(--text);
+  }
+
+  .about-list li {
+    margin-bottom: 6px;
+  }
+
+  .about-code {
+    background: var(--code-bg);
+    padding: 10px;
+    border-radius: 6px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    margin: 8px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Animations */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 80%, 100% {
+      transform: scale(0.7);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Mobile optimizations */
+  input, textarea, button {
+    font-size: 16px;
+  }
+
+  @media (orientation: landscape) {
+    header {
+      padding: 8px 14px;
+    }
+
+    .tabs {
+      padding: 0 6px;
+    }
+
+    .tab-btn {
+      min-width: 60px;
+      padding: 6px 8px;
+      font-size: 10px;
+    }
+
+    #messages {
+      padding: 10px 12px;
+    }
+
+    #input-area {
+      padding: 8px 12px var(--safe-area-bottom);
+    }
+  }
+
+  @media (max-height: 500px) {
+    header {
+      padding: 8px 12px;
+    }
+
+    .tabs {
+      padding: 0 4px;
+    }
+
+    #messages {
+      padding: 8px 10px;
+      gap: 8px;
+    }
+
+    .bubble {
+      font-size: 12px;
+      padding: 8px 10px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="status-bar"></div>
+
+  <header>
+    <div class="header-left">
+      <div class="logo">👾</div>
+      <div>
+        <div class="header-title">Code Agent</div>
+        <div class="header-subtitle">Pro Edition</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="icon-btn" id="install-btn" onclick="installApp()" style="display: none;" title="Install App">⬇️</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('chat')">
+      <span class="tab-icon">💬</span>
+      <span>Chat</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('code')">
+      <span class="tab-icon">💻</span>
+      <span>Code</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('output')">
+      <span class="tab-icon">📤</span>
+      <span>Output</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('about')">
+      <span class="tab-icon">ℹ️</span>
+      <span>About</span>
+    </button>
+  </div>
+
+  <!-- Chat Tab -->
+  <div id="chat" class="content active">
+    <div id="messages"></div>
+    <div id="input-area">
+      <div class="input-wrap">
+        <div class="textarea-box">
+          <textarea id="user-input" rows="1" placeholder="Code likhun..."></textarea>
+        </div>
+        <button id="send-btn" onclick="sendMessage()">⚡</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code Tab -->
+  <div id="code" class="content">
+    <div class="editor-controls">
+      <button class="control-btn" onclick="runCode()">▶ RUN</button>
+      <button class="control-btn secondary" onclick="clearCode()">Clear</button>
+    </div>
+    <div class="editor-container">
+      <textarea id="code-editor" placeholder="console.log('Hello World!');"></textarea>
+    </div>
+  </div>
+
+  <!-- Output Tab -->
+  <div id="output" class="content">
+    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="output-container">
+        <div class="output-header">📤 EXECUTION OUTPUT</div>
+        <div id="output"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Tab -->
+  <div id="about" class="content">
+    <div class="about-content">
+      <div class="about-section">
+        <div class="about-title">👾 AI Code Agent Pro</div>
+        <div class="about-text">একটি শক্তিশালী AI-powered code editor mobile app</div>
+      </div>
+
+      <div class="about-section">
+        <div class="about-title">✨ Features</div>
+        <ul class="about-list">
+          <li>🤖 AI Code Assistant (Claude)</li>
+          <li>💻 Live JavaScript Editor</li>
+          <li>⚡ Instant Code Execution</li>
+          <li>📱 Mobile Optimized</li>
+          <li>🎨 Beautiful Dark UI</li>
+          <li>📥 Install as App</li>
+        </ul>
+      </div>
+
+      <div class="about-section">
+        <div class="about-title">🚀 How to Use</div>
+        <ul class="about-list">
+          <li><strong>Chat:</strong> AI সাথে কথা বলুন</li>
+          <li><strong>Code:</strong> JavaScript লিখুন ও execute করুন</li>
+          <li><strong>Output:</strong> Results দেখুন</li>
+        </ul>
+      </div>
+
+      <div class="about-section">
+        <div class="about-title">📝 Example Code</div>
+        <div class="about-code">const arr = [1, 2, 3];
+console.log(arr.map(x => x * 2));</div>
+      </div>
+
+      <div class="about-section">
+        <div class="about-title">📥 Install করুন</div>
+        <div class="about-text">Header এর ⬇️ button এ ক্লিক করুন অথবা:</div>
+        <div class="about-text"><strong>Android:</strong> Menu (⋮) → "Install app"</div>
+        <div class="about-text"><strong>iOS:</strong> Share (↗) → "Add to Home Screen"</div>
+      </div>
+
+      <div class="about-section" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 20px;">
+        <div class="about-text" style="color: var(--muted); font-size: 12px;">Made with ❤️ by Abir</div>
+        <div class="about-text" style="color: var(--muted); font-size: 11px;">GitHub: @rakibh8545-crypto</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // PWA Installation
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-btn').style.display = 'flex';
+  });
+
+  function installApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('App installed');
+        }
+        deferredPrompt = null;
+        document.getElementById('install-btn').style.display = 'none';
+      });
+    }
+  }
+
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  const SYSTEM_PROMPT = `You are an elite AI coding agent. Help users with:
+- Writing, editing, fixing code
+- Debugging and explaining errors
+- Optimizing code performance
+- Adding new features
+
+Respond with clean, well-commented code.
+Wrap code in triple backticks with language name.`;
+
+  let conversationHistory = [];
+  let isLoading = false;
+
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+  const codeEditor = document.getElementById('code-editor');
+  const outputEl = document.getElementById('output');
+
+  function switchTab(tab) {
+    document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.closest('.tab-btn').classList.add('active');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatContent(content) {
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    return parts.map(part => {
+      if (part.startsWith('```')) {
+        const lines = part.slice(3).split('\n');
+        const lang = lines[0].trim() || 'code';
+        const code = lines.slice(1).join('\n').replace(/```$/, '').trim();
+        const id = 'cb_' + Math.random().toString(36).slice(2);
+        return `<div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">${escapeHtml(lang.toUpperCase())}</span>
+            <div class="code-buttons">
+              <button class="code-btn" onclick="copyCode('${id}')">COPY</button>
+              <button class="code-btn" onclick="insertCode('${id}')">INSERT</button>
+            </div>
+          </div>
+          <pre id="${id}">${escapeHtml(code)}</pre>
+        </div>`;
+      }
+      return part
+        .split('\n')
+        .map(line => line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'))
+        .join('<br>');
+    }).join('');
+  }
+
+  function copyCode(id) {
+    const text = document.getElementById(id)?.innerText || '';
+    navigator.clipboard.writeText(text).then(() => {
+      alert('✅ Copied!');
+    }).catch(() => {
+      alert('Failed to copy');
+    });
+  }
+
+  function insertCode(id) {
+    const text = document.getElementById(id)?.innerText || '';
+    codeEditor.value = text;
+    switchTab('code');
+  }
+
+  function appendMessage(role, content) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    if (role === 'assistant') {
+      row.innerHTML = `
+        <div class="avatar">👾</div>
+        <div class="bubble assistant">${formatContent(content)}</div>`;
+    } else {
+      row.innerHTML = `<div class="bubble user">${escapeHtml(content).replace(/\n/g,'<br>')}</div>`;
+    }
+
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function showTyping() {
+    const row = document.createElement('div');
+    row.className = 'typing-row';
+    row.id = 'typing';
+    row.innerHTML = `
+      <div class="avatar">👾</div>
+      <div class="typing-bubble">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>`;
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function hideTyping() {
+    document.getElementById('typing')?.remove();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isLoading) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    appendMessage('user', text);
+
+    conversationHistory.push({ role: 'user', content: text });
+    isLoading = true;
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      let apiKey = localStorage.getItem('anthropic-key');
+      if (!apiKey) {
+        apiKey = prompt('Enter your Anthropic API key:');
+        if (!apiKey) {
+          hideTyping();
+          isLoading = false;
+          sendBtn.disabled = false;
+          return;
+        }
+        localStorage.setItem('anthropic-key', apiKey);
+      }
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          messages: conversationHistory
+        })
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('anthropic-key');
+          alert('Invalid API key. Please try again.');
+        }
+        throw new Error('API Error');
+      }
+
+      const data = await res.json();
+      const reply = (data.content || []).map(c => c.text || '').join('') || 'No response';
+      conversationHistory.push({ role: 'assistant', content: reply });
+      hideTyping();
+      appendMessage('assistant', reply);
+    } catch (e) {
+      hideTyping();
+      appendMessage('assistant', '❌ Error: ' + e.message);
+    }
+
+    isLoading = false;
+    sendBtn.disabled = false;
+  }
+
+  function runCode() {
+    const code = codeEditor.value;
+    if (!code.trim()) {
+      outputEl.innerHTML = '<span class="output-error">❌ Code empty!</span>';
+      switchTab('output');
+      return;
+    }
+
+    switchTab('output');
+    outputEl.innerHTML = '<span class="output-info">⏳ Executing...</span>';
+
+    try {
+      const logs = [];
+      const originalLog = console.log;
+      
+      console.log = function(...args) {
+        const text = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+        logs.push(text);
+      };
+
+      eval(code);
+      console.log = originalLog;
+
+      outputEl.innerHTML = logs.length ? 
+        `<span class="output-success">✅ Success</span>\n\n${logs.map(l => escapeHtml(l)).join('\n')}` :
+        '<span class="output-info">✅ Executed</span>';
+    } catch (e) {
+      outputEl.innerHTML = `<span class="output-error">❌ ${escapeHtml(e.message)}</span>\n\n${escapeHtml(e.stack)}`;
+    }
+  }
+
+  function clearCode() {
+    codeEditor.value = '';
+    outputEl.innerHTML = 'Ready to execute...';
+  }
+
+  inputEl.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Prevent zoom on double tap
+  document.addEventListener('touchstart', function(e) {
+    if (e.touches.length > 1) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Initial message
+  appendMessage('assistant', '👾 **AI Code Agent**\n\n💬 Chat কর AI সাথে\n💻 Code লিখ এবং Run করো\n📤 Output দেখো\n\nশুরু করো!');
+</script>
+
+</body>
+</html>
