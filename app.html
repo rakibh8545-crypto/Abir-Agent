@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Code Agent - Mobile App</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Code Agent">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #7c3aed;
+    --accent-glow: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --user-bubble: #1e1b4b;
+    --ai-bubble: #0f172a;
+    --code-bg: #020207;
+    --input-bg: #0d0d14;
+    --success: #10b981;
+    --error: #ef4444;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    z-index: 1;
+    position: relative;
+  }
+
+  /* Navigation Tabs */
+  .nav-tabs {
+    display: flex;
+    gap: 0;
+    background: rgba(17,17,24,0.9);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+  }
+
+  .nav-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .nav-tab span {
+    font-size: 20px;
+  }
+
+  /* Content Sections */
+  .content {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .content.active {
+    display: flex;
+  }
+
+  /* Header */
+  header {
+    padding: 14px 16px;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .install-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  /* Messages Section */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .msg-row {
+    display: flex;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .msg-row.user {
+    justify-content: flex-end;
+  }
+
+  .msg-row.assistant {
+    justify-content: flex-start;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+
+  .bubble.user {
+    background: var(--user-bubble);
+    border: 1px solid rgba(124,58,237,0.4);
+    border-radius: 16px 16px 4px 16px;
+  }
+
+  .bubble.assistant {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+  }
+
+  .bubble strong {
+    color: var(--accent-glow);
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: #0a0a12;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    color: var(--accent-glow);
+    font-size: 10px;
+    font-family: 'Fira Code', monospace;
+  }
+
+  .code-buttons {
+    display: flex;
+    gap: 4px;
+  }
+
+  .code-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .code-btn:active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .code-block pre {
+    margin: 0;
+    padding: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #c4b5fd;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Input Area */
+  #input-area {
+    padding: 12px;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .input-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .textarea-box {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  #user-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.4;
+    resize: none;
+    font-family: inherit;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  #user-input::placeholder {
+    color: #475569;
+  }
+
+  #send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #c026d3);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  #send-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Editor Section */
+  .editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .editor-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(17,17,24,0.6);
+  }
+
+  .editor-tab {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+
+  .editor-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  #code-editor {
+    flex: 1;
+    padding: 12px;
+    background: var(--code-bg);
+    border: none;
+    outline: none;
+    color: #c4b5fd;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    resize: none;
+    overflow: auto;
+  }
+
+  .output-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--code-bg);
+    overflow: hidden;
+  }
+
+  #output {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #c4b5fd;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .output-success {
+    color: var(--success);
+  }
+
+  .output-error {
+    color: var(--error);
+  }
+
+  .output-info {
+    color: var(--accent-glow);
+  }
+
+  /* Typing Indicator */
+  .typing-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .typing-bubble {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+    padding: 10px 14px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+  }
+
+  .dot:nth-child(1) {
+    animation: pulse 1.2s ease-in-out 0s infinite;
+  }
+
+  .dot:nth-child(2) {
+    animation: pulse 1.2s ease-in-out 0.2s infinite;
+  }
+
+  .dot:nth-child(3) {
+    animation: pulse 1.2s ease-in-out 0.4s infinite;
+  }
+
+  /* Scrollbar */
+  #messages::-webkit-scrollbar,
+  #code-editor::-webkit-scrollbar,
+  #output::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  #messages::-webkit-scrollbar-thumb,
+  #code-editor::-webkit-scrollbar-thumb,
+  #output::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 80%, 100% {
+      transform: scale(0.7);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    header {
+      padding: 12px 12px;
+    }
+
+    .header-title {
+      font-size: 13px;
+    }
+
+    .bubble {
+      font-size: 12px;
+      max-width: 90%;
+    }
+
+    #user-input {
+      font-size: 12px;
+    }
+
+    .nav-tab {
+      font-size: 11px;
+      padding: 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('chat')">
+      <span>💬</span>
+      <div>Chat</div>
+    </button>
+    <button class="nav-tab" onclick="switchTab('editor')">
+      <span>💻</span>
+      <div>Code</div>
+    </button>
+    <button class="nav-tab" onclick="switchTab('output')">
+      <span>📤</span>
+      <div>Output</div>
+    </button>
+    <button class="nav-tab" onclick="switchTab('about')">
+      <span>ℹ️</span>
+      <div>About</div>
+    </button>
+  </div>
+
+  <!-- Chat Section -->
+  <div id="chat" class="content active">
+    <header>
+      <div class="header-left">
+        <div class="logo">👾</div>
+        <div class="header-title">AI Code Agent</div>
+      </div>
+      <button class="install-btn" id="install-btn" style="display: none;" onclick="installApp()">Install App</button>
+    </header>
+
+    <div id="messages"></div>
+
+    <div id="input-area">
+      <div class="input-wrap">
+        <div class="textarea-box">
+          <textarea id="user-input" rows="1" placeholder="Code likhun..."></textarea>
+        </div>
+        <button id="send-btn" onclick="sendMessage()">⚡</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code Editor Section -->
+  <div id="editor" class="content">
+    <header>
+      <div class="header-left">
+        <div class="logo">💻</div>
+        <div class="header-title">Code Editor</div>
+      </div>
+      <button class="install-btn" onclick="runCode()">▶ RUN</button>
+    </header>
+
+    <div class="editor-container">
+      <div class="editor-tabs">
+        <button class="editor-tab active" onclick="switchEditor('code')">📝 CODE</button>
+        <button class="editor-tab" onclick="clearEditor()">🗑️ CLEAR</button>
+      </div>
+      <textarea id="code-editor" placeholder="// Write your code here...&#10;console.log('Hello World');"></textarea>
+    </div>
+  </div>
+
+  <!-- Output Section -->
+  <div id="output" class="content">
+    <header>
+      <div class="header-left">
+        <div class="logo">📤</div>
+        <div class="header-title">Output</div>
+      </div>
+      <button class="install-btn" onclick="clearOutput()">Clear</button>
+    </header>
+
+    <div class="output-container">
+      <div id="output"></div>
+    </div>
+  </div>
+
+  <!-- About Section -->
+  <div id="about" class="content">
+    <header>
+      <div class="header-left">
+        <div class="logo">ℹ️</div>
+        <div class="header-title">About App</div>
+      </div>
+    </header>
+
+    <div style="flex: 1; overflow-y: auto; padding: 16px; font-size: 13px; line-height: 1.8;">
+      <div style="margin-bottom: 20px;">
+        <h2 style="color: var(--accent-glow); margin-bottom: 8px;">👾 AI Code Agent Pro</h2>
+        <p style="color: var(--muted);">একটি শক্তিশালী AI-powered code editor mobile app</p>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: var(--accent); margin-bottom: 8px; font-size: 12px;">✨ Features</h3>
+        <ul style="margin-left: 16px; color: var(--text);">
+          <li>🤖 AI Code Assistant (Claude)</li>
+          <li>💻 Live Code Editor</li>
+          <li>⚡ Instant Code Execution</li>
+          <li>📱 Offline Compatible</li>
+          <li>🎨 Beautiful Dark UI</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: var(--accent); margin-bottom: 8px; font-size: 12px;">🚀 How to Use</h3>
+        <ol style="margin-left: 16px; color: var(--text);">
+          <li><strong>Chat Tab:</strong> AI সাথে কথা বলুন</li>
+          <li><strong>Code Tab:</strong> Code লিখুন এবং RUN করুন</li>
+          <li><strong>Output Tab:</strong> Results দেখুন</li>
+        </ol>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: var(--accent); margin-bottom: 8px; font-size: 12px;">📝 Example</h3>
+        <div style="background: var(--code-bg); padding: 10px; border-radius: 6px; font-family: 'Fira Code'; font-size: 11px;">
+const arr = [1, 2, 3, 4, 5];<br>
+console.log(arr.map(x => x * 2));
+        </div>
+      </div>
+
+      <div style="padding-top: 16px; border-top: 1px solid var(--border);">
+        <p style="color: var(--muted); font-size: 12px;">Made with ❤️ by Abir</p>
+        <p style="color: var(--muted); font-size: 11px; margin-top: 8px;">GitHub: @rakibh8545-crypto</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // PWA Installation
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-btn').style.display = 'block';
+  });
+
+  function installApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        deferredPrompt = null;
+      });
+    }
+  }
+
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  const SYSTEM_PROMPT = `You are an elite AI coding agent. You can:
+- Write, edit, fix, refactor, and explain any code
+- Add features and improvements
+- Debug and find errors
+- Help with any programming language
+- Suggest optimizations
+
+Always respond with well-structured code.
+When providing code, wrap it in triple backticks with the language name.
+Be concise but thorough.`;
+
+  let conversationHistory = [];
+  let isLoading = false;
+
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+  const codeEditor = document.getElementById('code-editor');
+  const outputEl = document.getElementById('output');
+
+  function switchTab(tab) {
+    document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.closest('.nav-tab').classList.add('active');
+  }
+
+  function switchEditor(type) {
+    // Placeholder for future functionality
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function formatContent(content) {
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    return parts.map(part => {
+      if (part.startsWith('```')) {
+        const lines = part.slice(3).split('\n');
+        const lang = lines[0].trim() || 'code';
+        const code = lines.slice(1).join('\n').replace(/```$/, '').trim();
+        const id = 'cb_' + Math.random().toString(36).slice(2);
+        return `<div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">${escapeHtml(lang.toUpperCase())}</span>
+            <div class="code-buttons">
+              <button class="code-btn" onclick="copyCode('${id}')">COPY</button>
+              <button class="code-btn" onclick="insertCode('${id}')">INSERT</button>
+            </div>
+          </div>
+          <pre id="${id}">${escapeHtml(code)}</pre>
+        </div>`;
+      }
+      return part
+        .split('\n')
+        .map(line => line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'))
+        .join('<br>');
+    }).join('');
+  }
+
+  function copyCode(id) {
+    const text = document.getElementById(id)?.innerText || '';
+    navigator.clipboard.writeText(text).then(() => {
+      alert('✅ Copied!');
+    });
+  }
+
+  function insertCode(id) {
+    const text = document.getElementById(id)?.innerText || '';
+    codeEditor.value = text;
+    switchTab('editor');
+    codeEditor.focus();
+  }
+
+  function appendMessage(role, content) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    if (role === 'assistant') {
+      row.innerHTML = `
+        <div class="avatar">👾</div>
+        <div class="bubble assistant">${formatContent(content)}</div>`;
+    } else {
+      row.innerHTML = `<div class="bubble user">${escapeHtml(content).replace(/\n/g,'<br>')}</div>`;
+    }
+
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function showTyping() {
+    const row = document.createElement('div');
+    row.className = 'typing-row';
+    row.id = 'typing';
+    row.innerHTML = `
+      <div class="avatar">👾</div>
+      <div class="typing-bubble">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>`;
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function hideTyping() {
+    document.getElementById('typing')?.remove();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isLoading) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    appendMessage('user', text);
+
+    conversationHistory.push({ role: 'user', content: text });
+    isLoading = true;
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const apiKey = localStorage.getItem('anthropic-key') || prompt('Enter Anthropic API key:');
+      if (!apiKey) return;
+      
+      localStorage.setItem('anthropic-key', apiKey);
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          messages: conversationHistory
+        })
+      });
+
+      if (!res.ok) throw new Error('API Error');
+
+      const data = await res.json();
+      const reply = (data.content || []).map(c => c.text || '').join('') || 'Error: No response.';
+      conversationHistory.push({ role: 'assistant', content: reply });
+      hideTyping();
+      appendMessage('assistant', reply);
+    } catch (e) {
+      hideTyping();
+      appendMessage('assistant', '❌ Error: ' + e.message);
+    }
+
+    isLoading = false;
+    sendBtn.disabled = false;
+  }
+
+  function runCode() {
+    const code = codeEditor.value;
+    if (!code.trim()) {
+      outputEl.innerHTML = '<span class="output-error">❌ Code editor is empty!</span>';
+      switchTab('output');
+      return;
+    }
+
+    switchTab('output');
+    outputEl.innerHTML = '<span class="output-info">⏳ Executing...</span>';
+
+    try {
+      let output = '';
+      const logs = [];
+
+      const originalLog = console.log;
+      console.log = function(...args) {
+        const text = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+        logs.push(text);
+      };
+
+      eval(code);
+      console.log = originalLog;
+
+      outputEl.innerHTML = logs.length ? 
+        `<span class="output-success">✅ Success</span>\n\n${logs.map(l => escapeHtml(l)).join('\n')}` :
+        '<span class="output-info">✅ Executed (no output)</span>';
+    } catch (e) {
+      outputEl.innerHTML = `<span class="output-error">❌ ${escapeHtml(e.message)}</span>\n\n${escapeHtml(e.stack)}`;
+    }
+  }
+
+  function clearEditor() {
+    codeEditor.value = '';
+  }
+
+  function clearOutput() {
+    outputEl.innerHTML = 'Ready to execute...';
+  }
+
+  inputEl.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Initial message
+  appendMessage('assistant', '👾 **AI Code Agent Mobile App**\n\n💬 Chat - AI সাথে কথা বলুন\n💻 Code - JavaScript execute করুন\n📤 Output - Results দেখুন\n\nShuru korun!');
+</script>
+
+</body>
+</html>
